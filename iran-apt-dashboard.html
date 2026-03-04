@@ -1,0 +1,1790 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IRAN CYBER THREAT INTELLIGENCE — LIVE DASHBOARD</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;500;600;700&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #040a0f;
+    --panel: #070e16;
+    --panel2: #091420;
+    --border: #0d2035;
+    --border-hot: #1a4060;
+    --accent: #00c8ff;
+    --accent2: #ff4040;
+    --accent3: #ffb800;
+    --accent4: #00ff88;
+    --muted: #2a4a6a;
+    --text: #c8dff0;
+    --text-dim: #4a7090;
+    --critical: #ff2040;
+    --high: #ff8800;
+    --med: #ffcc00;
+    --low: #00cc66;
+    --irgc: #ff4060;
+    --mois: #c060ff;
+    --proxy: #00aaff;
+    --hacktivist: #ff9020;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 14px;
+    overflow-x: hidden;
+    min-height: 100vh;
+  }
+
+  /* Scanline overlay */
+  body::before {
+    content: '';
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0,0,0,0.08) 2px,
+      rgba(0,0,0,0.08) 4px
+    );
+    pointer-events: none;
+    z-index: 9999;
+  }
+
+  /* Noise texture */
+  body::after {
+    content: '';
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 9998;
+    opacity: 0.4;
+  }
+
+  /* HEADER */
+  header {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    padding: 12px 24px;
+    background: linear-gradient(180deg, rgba(0,60,100,0.3) 0%, transparent 100%);
+    border-bottom: 1px solid var(--border-hot);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    backdrop-filter: blur(10px);
+  }
+
+  .header-left { display: flex; align-items: center; gap: 16px; }
+  .header-right { display: flex; align-items: center; gap: 16px; justify-content: flex-end; }
+
+  .logo {
+    font-family: 'Orbitron', monospace;
+    font-size: 9px;
+    font-weight: 900;
+    color: var(--accent);
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    line-height: 1.2;
+  }
+
+  .logo span { color: var(--accent2); }
+
+  .header-title {
+    font-family: 'Orbitron', monospace;
+    font-size: 14px;
+    font-weight: 900;
+    color: var(--accent);
+    letter-spacing: 4px;
+    text-align: center;
+    text-shadow: 0 0 20px rgba(0,200,255,0.5);
+    animation: titlePulse 4s ease-in-out infinite;
+  }
+
+  .header-title .sub {
+    display: block;
+    font-size: 8px;
+    color: var(--text-dim);
+    letter-spacing: 6px;
+    margin-top: 2px;
+  }
+
+  @keyframes titlePulse {
+    0%, 100% { text-shadow: 0 0 20px rgba(0,200,255,0.5); }
+    50% { text-shadow: 0 0 40px rgba(0,200,255,0.9), 0 0 60px rgba(0,200,255,0.3); }
+  }
+
+  .live-indicator {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    color: var(--accent4);
+    letter-spacing: 2px;
+  }
+
+  .live-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--accent4);
+    animation: livePulse 1.5s ease-in-out infinite;
+    box-shadow: 0 0 10px var(--accent4);
+  }
+
+  @keyframes livePulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.4; transform: scale(0.8); }
+  }
+
+  .threat-level-badge {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    padding: 4px 10px;
+    border: 1px solid var(--critical);
+    color: var(--critical);
+    letter-spacing: 2px;
+    animation: badgePulse 2s ease-in-out infinite;
+  }
+
+  @keyframes badgePulse {
+    0%, 100% { border-color: var(--critical); color: var(--critical); }
+    50% { border-color: rgba(255,32,64,0.4); color: rgba(255,32,64,0.7); }
+  }
+
+  #clock {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    color: var(--text-dim);
+    letter-spacing: 2px;
+  }
+
+  /* MAIN LAYOUT */
+  .dashboard {
+    display: grid;
+    grid-template-columns: 280px 1fr 300px;
+    grid-template-rows: auto 1fr;
+    gap: 1px;
+    background: var(--border);
+    min-height: calc(100vh - 60px);
+  }
+
+  /* PANELS */
+  .panel {
+    background: var(--panel);
+    padding: 0;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 16px;
+    background: var(--panel2);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .panel-title {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    color: var(--accent);
+    letter-spacing: 3px;
+    text-transform: uppercase;
+  }
+
+  .panel-count {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    color: var(--text-dim);
+  }
+
+  /* STAT STRIP */
+  .stat-strip {
+    display: grid;
+    grid-column: 1 / -1;
+    grid-template-columns: repeat(6, 1fr);
+    background: var(--panel2);
+    border-bottom: 1px solid var(--border-hot);
+  }
+
+  .stat-item {
+    padding: 12px 20px;
+    border-right: 1px solid var(--border);
+    transition: background 0.2s;
+  }
+  .stat-item:last-child { border-right: none; }
+  .stat-item:hover { background: rgba(0,200,255,0.05); }
+
+  .stat-label {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 8px;
+    color: var(--text-dim);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+
+  .stat-value {
+    font-family: 'Orbitron', monospace;
+    font-size: 22px;
+    font-weight: 700;
+    line-height: 1;
+  }
+
+  .stat-delta {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 8px;
+    margin-top: 2px;
+  }
+
+  /* GROUP LIST */
+  .group-list { overflow-y: auto; max-height: calc(100vh - 160px); }
+  .group-list::-webkit-scrollbar { width: 3px; }
+  .group-list::-webkit-scrollbar-track { background: var(--panel); }
+  .group-list::-webkit-scrollbar-thumb { background: var(--border-hot); }
+
+  .group-item {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+    transition: all 0.15s;
+    position: relative;
+  }
+
+  .group-item::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 3px;
+    transition: all 0.15s;
+  }
+
+  .group-item.irgc::before { background: var(--irgc); }
+  .group-item.mois::before { background: var(--mois); }
+  .group-item.proxy::before { background: var(--proxy); }
+  .group-item.hacktivist::before { background: var(--hacktivist); }
+
+  .group-item:hover { background: rgba(0,200,255,0.04); }
+  .group-item.active { background: rgba(0,200,255,0.07); border-bottom-color: var(--border-hot); }
+
+  .group-item-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 4px;
+  }
+
+  .group-name {
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: 700;
+    font-size: 13px;
+    color: var(--text);
+    letter-spacing: 1px;
+  }
+
+  .group-aka {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 8px;
+    color: var(--text-dim);
+    margin-bottom: 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .group-meta {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .tag {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 8px;
+    padding: 1px 6px;
+    letter-spacing: 1px;
+    border: 1px solid;
+    text-transform: uppercase;
+  }
+
+  .tag.irgc { color: var(--irgc); border-color: var(--irgc); background: rgba(255,64,96,0.08); }
+  .tag.mois { color: var(--mois); border-color: var(--mois); background: rgba(192,96,255,0.08); }
+  .tag.proxy { color: var(--proxy); border-color: var(--proxy); background: rgba(0,170,255,0.08); }
+  .tag.hacktivist { color: var(--hacktivist); border-color: var(--hacktivist); background: rgba(255,144,32,0.08); }
+
+  .severity-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .severity-dot.critical { background: var(--critical); box-shadow: 0 0 6px var(--critical); }
+  .severity-dot.high { background: var(--high); box-shadow: 0 0 6px var(--high); }
+  .severity-dot.med { background: var(--med); }
+  .severity-dot.low { background: var(--low); }
+
+  /* MAIN CENTER */
+  .center-panel {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* FILTER BAR */
+  .filter-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 16px;
+    background: var(--panel2);
+    border-bottom: 1px solid var(--border);
+    flex-wrap: wrap;
+  }
+
+  .filter-btn {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 9px;
+    padding: 4px 12px;
+    border: 1px solid var(--border-hot);
+    background: transparent;
+    color: var(--text-dim);
+    cursor: pointer;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    transition: all 0.15s;
+  }
+
+  .filter-btn:hover, .filter-btn.active {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: rgba(0,200,255,0.07);
+  }
+
+  .search-input {
+    margin-left: auto;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 4px 12px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 1px;
+    width: 200px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .search-input:focus { border-color: var(--accent); }
+  .search-input::placeholder { color: var(--text-dim); }
+
+  /* GROUP DETAIL VIEW */
+  .detail-view {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
+  }
+  .detail-view::-webkit-scrollbar { width: 3px; }
+  .detail-view::-webkit-scrollbar-thumb { background: var(--border-hot); }
+
+  .detail-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: 24px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .detail-name {
+    font-family: 'Orbitron', monospace;
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--accent);
+    letter-spacing: 2px;
+    margin-bottom: 6px;
+  }
+
+  .detail-aliases {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    color: var(--text-dim);
+    letter-spacing: 1px;
+    margin-bottom: 10px;
+  }
+
+  .detail-tags { display: flex; gap: 6px; flex-wrap: wrap; }
+
+  .threat-meter {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
+  }
+
+  .threat-meter-label {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 8px;
+    color: var(--text-dim);
+    letter-spacing: 2px;
+  }
+
+  .threat-meter-value {
+    font-family: 'Orbitron', monospace;
+    font-size: 28px;
+    font-weight: 900;
+    line-height: 1;
+  }
+
+  .threat-meter-bar {
+    width: 120px;
+    height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  .threat-meter-fill {
+    height: 100%;
+    border-radius: 2px;
+    transition: width 0.6s ease;
+  }
+
+  .detail-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+
+  .detail-card {
+    background: var(--panel2);
+    border: 1px solid var(--border);
+    padding: 14px;
+  }
+
+  .detail-card-title {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 8px;
+    color: var(--accent);
+    letter-spacing: 3px;
+    margin-bottom: 10px;
+    text-transform: uppercase;
+  }
+
+  .detail-card-content {
+    font-size: 13px;
+    line-height: 1.6;
+    color: var(--text);
+  }
+
+  .target-chip {
+    display: inline-block;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 8px;
+    padding: 2px 8px;
+    margin: 2px;
+    border: 1px solid var(--border-hot);
+    color: var(--text-dim);
+    letter-spacing: 1px;
+  }
+
+  .platform-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 0;
+    border-bottom: 1px solid var(--border);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+  }
+
+  .platform-row:last-child { border-bottom: none; }
+
+  .platform-icon {
+    width: 20px; height: 20px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px;
+    flex-shrink: 0;
+  }
+
+  .platform-name {
+    color: var(--text-dim);
+    letter-spacing: 1px;
+    width: 80px;
+    flex-shrink: 0;
+  }
+
+  .platform-handle {
+    color: var(--accent);
+    letter-spacing: 1px;
+    flex: 1;
+  }
+
+  .platform-status {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+  }
+
+  .platform-status.active { background: var(--accent4); box-shadow: 0 0 6px var(--accent4); }
+  .platform-status.inactive { background: var(--text-dim); }
+
+  /* INCIDENT FEED */
+  .feed-list { overflow-y: auto; max-height: calc(100vh - 160px); }
+  .feed-list::-webkit-scrollbar { width: 3px; }
+  .feed-list::-webkit-scrollbar-thumb { background: var(--border-hot); }
+
+  .feed-item {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    position: relative;
+    animation: feedIn 0.4s ease;
+  }
+
+  @keyframes feedIn {
+    from { opacity: 0; transform: translateX(20px); }
+    to { opacity: 1; transform: translateX(0); }
+  }
+
+  .feed-item.new {
+    background: rgba(0,200,255,0.04);
+    animation: feedIn 0.4s ease, newPulse 3s ease;
+  }
+
+  @keyframes newPulse {
+    0% { background: rgba(0,200,255,0.15); }
+    100% { background: rgba(0,200,255,0.04); }
+  }
+
+  .feed-time {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 8px;
+    color: var(--text-dim);
+    letter-spacing: 1px;
+    margin-bottom: 4px;
+  }
+
+  .feed-actor {
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: 700;
+    font-size: 11px;
+    color: var(--accent);
+    letter-spacing: 1px;
+    margin-bottom: 4px;
+  }
+
+  .feed-content {
+    font-size: 12px;
+    color: var(--text);
+    line-height: 1.5;
+    margin-bottom: 6px;
+  }
+
+  .feed-tags {
+    display: flex;
+    gap: 4px;
+    flex-wrap: wrap;
+  }
+
+  .feed-tag {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 7px;
+    padding: 1px 5px;
+    letter-spacing: 1px;
+    background: rgba(0,200,255,0.08);
+    border: 1px solid var(--border-hot);
+    color: var(--text-dim);
+  }
+
+  .feed-severity {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 7px;
+    padding: 1px 6px;
+    letter-spacing: 1px;
+    border: 1px solid;
+  }
+
+  .feed-severity.CRITICAL { color: var(--critical); border-color: var(--critical); }
+  .feed-severity.HIGH { color: var(--high); border-color: var(--high); }
+  .feed-severity.MEDIUM { color: var(--med); border-color: var(--med); }
+  .feed-severity.LOW { color: var(--low); border-color: var(--low); }
+
+  /* Source indicators */
+  .source-icon {
+    font-size: 9px;
+    padding: 1px 5px;
+    border-radius: 2px;
+    font-family: 'Share Tech Mono', monospace;
+    letter-spacing: 1px;
+    color: #fff;
+  }
+
+  .source-icon.telegram { background: #229ED9; }
+  .source-icon.x { background: #000; border: 1px solid #333; }
+  .source-icon.cisa { background: #1a3a6a; }
+  .source-icon.mitre { background: #2a1a6a; }
+  .source-icon.news { background: #3a1a1a; }
+
+  /* MITRE ATT&CK */
+  .ttp-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 6px;
+  }
+
+  .ttp-chip {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 8px;
+    padding: 2px 6px;
+    background: rgba(0,200,255,0.05);
+    border: 1px solid var(--border-hot);
+    color: var(--accent);
+    letter-spacing: 1px;
+  }
+
+  /* ACTIVITY SPARKLINE */
+  .sparkline-container {
+    padding: 12px 16px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .sparkline-label {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 8px;
+    color: var(--text-dim);
+    letter-spacing: 2px;
+    margin-bottom: 8px;
+  }
+
+  canvas.sparkline { width: 100%; height: 50px; display: block; }
+
+  /* SCROLLBAR GLOW EFFECT */
+  .glow-line {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--accent), transparent);
+    animation: glowSweep 4s linear infinite;
+    opacity: 0.5;
+  }
+
+  @keyframes glowSweep {
+    0% { transform: scaleX(0); transform-origin: left; }
+    50% { transform: scaleX(1); transform-origin: left; }
+    51% { transform: scaleX(1); transform-origin: right; }
+    100% { transform: scaleX(0); transform-origin: right; }
+  }
+
+  /* TICKER */
+  .ticker {
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    background: rgba(4,10,15,0.95);
+    border-top: 1px solid var(--border-hot);
+    padding: 6px 0;
+    overflow: hidden;
+    z-index: 50;
+    backdrop-filter: blur(10px);
+  }
+
+  .ticker-label {
+    position: absolute;
+    left: 0;
+    background: var(--accent2);
+    padding: 4px 12px;
+    font-family: 'Orbitron', monospace;
+    font-size: 8px;
+    font-weight: 900;
+    letter-spacing: 2px;
+    color: #fff;
+    z-index: 1;
+    top: 0; bottom: 0;
+    display: flex; align-items: center;
+  }
+
+  .ticker-content {
+    display: flex;
+    animation: tickerScroll 60s linear infinite;
+    padding-left: 120px;
+    white-space: nowrap;
+  }
+
+  .ticker-item {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    color: var(--text-dim);
+    padding: 0 40px;
+    letter-spacing: 1px;
+  }
+
+  .ticker-item .actor { color: var(--accent); }
+  .ticker-item .sev { color: var(--accent2); }
+
+  @keyframes tickerScroll {
+    0% { transform: translateX(0); }
+    100% { transform: translateX(-50%); }
+  }
+
+  /* EMPTY STATE */
+  .empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 200px;
+    color: var(--text-dim);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 2px;
+    gap: 8px;
+  }
+
+  /* SECTION HEADERS */
+  .section-header {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 9px;
+    color: var(--text-dim);
+    letter-spacing: 3px;
+    padding: 8px 16px 4px;
+    border-bottom: 1px solid var(--border);
+    background: rgba(0,0,0,0.2);
+    text-transform: uppercase;
+  }
+
+  /* MODAL / OVERLAY */
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(4,10,15,0.9);
+    z-index: 200;
+    display: none;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .modal-overlay.open { display: flex; }
+
+  .modal {
+    background: var(--panel);
+    border: 1px solid var(--border-hot);
+    max-width: 600px;
+    width: 90%;
+    max-height: 80vh;
+    overflow-y: auto;
+    position: relative;
+  }
+
+  .modal-close {
+    position: absolute;
+    top: 12px; right: 12px;
+    background: none;
+    border: 1px solid var(--border-hot);
+    color: var(--text-dim);
+    cursor: pointer;
+    padding: 4px 8px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 10px;
+  }
+
+  .modal-close:hover { border-color: var(--accent2); color: var(--accent2); }
+
+  .btn-add-feed {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 9px;
+    padding: 4px 12px;
+    border: 1px solid var(--accent4);
+    background: rgba(0,255,136,0.07);
+    color: var(--accent4);
+    cursor: pointer;
+    letter-spacing: 2px;
+    transition: all 0.15s;
+  }
+
+  .btn-add-feed:hover { background: rgba(0,255,136,0.15); }
+
+  /* Pulse indicator for new alerts */
+  .new-badge {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 7px;
+    padding: 1px 5px;
+    background: var(--accent2);
+    color: #fff;
+    letter-spacing: 1px;
+    animation: badgePulse 1s ease-in-out infinite;
+  }
+
+  .detail-section-title {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 9px;
+    color: var(--accent);
+    letter-spacing: 3px;
+    margin: 16px 0 8px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--border);
+    text-transform: uppercase;
+  }
+
+  .ioc-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 0;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 9px;
+    border-bottom: 1px solid rgba(13,32,53,0.5);
+  }
+
+  .ioc-type {
+    color: var(--text-dim);
+    width: 60px;
+    flex-shrink: 0;
+  }
+
+  .ioc-value {
+    color: var(--accent3);
+    flex: 1;
+    word-break: break-all;
+  }
+
+  .ioc-desc {
+    color: var(--text-dim);
+    font-size: 8px;
+  }
+
+  /* RESPONSIVE */
+  @media (max-width: 1200px) {
+    .dashboard { grid-template-columns: 240px 1fr 260px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-left">
+    <div class="logo">
+      IRAN-CTI<br>
+      <span>THREAT MONITOR</span>
+    </div>
+    <div class="threat-level-badge" id="threatLevelBadge">⚠ THREAT LEVEL: CRITICAL</div>
+  </div>
+
+  <div class="header-title">
+    ISLAMIC REPUBLIC ADVERSARY TRACKER
+    <span class="sub">INTELLIGENCE — SURVEILLANCE — ATTRIBUTION</span>
+  </div>
+
+  <div class="header-right">
+    <div class="live-indicator">
+      <div class="live-dot"></div>
+      LIVE FEED
+    </div>
+    <div id="clock">--:--:-- UTC</div>
+    <button class="btn-add-feed" onclick="openAddModal()">+ ADD SOURCE</button>
+  </div>
+</header>
+
+<div class="dashboard">
+  <!-- STAT STRIP -->
+  <div class="stat-strip">
+    <div class="stat-item">
+      <div class="stat-label">Tracked Groups</div>
+      <div class="stat-value" style="color:var(--accent)">12</div>
+      <div class="stat-delta" style="color:var(--accent4)">↑ 2 new this month</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-label">Active Campaigns</div>
+      <div class="stat-value" style="color:var(--high)" id="activeCampaigns">7</div>
+      <div class="stat-delta" style="color:var(--high)">↑ High activity</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-label">Incidents (30d)</div>
+      <div class="stat-value" style="color:var(--critical)" id="incidentCount">—</div>
+      <div class="stat-delta" style="color:var(--critical)">↑ Surge detected</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-label">IOCs Tracked</div>
+      <div class="stat-value" style="color:var(--accent3)" id="iocCount">—</div>
+      <div class="stat-delta" style="color:var(--accent3)">Updated live</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-label">Platform Sources</div>
+      <div class="stat-value" style="color:var(--mois)">6</div>
+      <div class="stat-delta" style="color:var(--text-dim)">TG · X · MITRE · CISA</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-label">Geopolitical Alert</div>
+      <div class="stat-value" style="color:var(--critical);font-size:14px;margin-top:4px">IRAN-US CONFLICT</div>
+      <div class="stat-delta" style="color:var(--critical)">JUNE 2025 ESCALATION</div>
+    </div>
+  </div>
+
+  <!-- LEFT: GROUP LIST -->
+  <div class="panel">
+    <div class="glow-line"></div>
+    <div class="panel-header">
+      <span class="panel-title">Threat Actors</span>
+      <span class="panel-count" id="groupCountBadge">12 GROUPS</span>
+    </div>
+
+    <div class="section-header">IRGC AFFILIATED</div>
+    <div class="group-list" id="groupList">
+      <!-- Populated by JS -->
+    </div>
+  </div>
+
+  <!-- CENTER: DETAIL + GRID -->
+  <div class="center-panel panel">
+    <div class="filter-bar">
+      <button class="filter-btn active" onclick="filterFeed('all',this)">ALL</button>
+      <button class="filter-btn" onclick="filterFeed('CRITICAL',this)" style="color:var(--critical);border-color:var(--critical)">CRITICAL</button>
+      <button class="filter-btn" onclick="filterFeed('HIGH',this)" style="color:var(--high);border-color:var(--high)">HIGH</button>
+      <button class="filter-btn" onclick="filterFeed('MEDIUM',this)">MEDIUM</button>
+      <button class="filter-btn" onclick="filterFeed('telegram',this)" style="color:#229ED9;border-color:#229ED9">TELEGRAM</button>
+      <button class="filter-btn" onclick="filterFeed('x',this)" style="color:#888;border-color:#666">X/TWITTER</button>
+      <button class="filter-btn" onclick="filterFeed('cisa',this)">CISA</button>
+      <input class="search-input" type="text" placeholder="Search groups, TTPs, IOCs..." oninput="handleSearch(this.value)">
+    </div>
+    <div class="detail-view" id="detailView">
+      <!-- Group detail populated by JS -->
+    </div>
+  </div>
+
+  <!-- RIGHT: INCIDENT FEED -->
+  <div class="panel">
+    <div class="glow-line"></div>
+    <div class="panel-header">
+      <span class="panel-title">Live Intel Feed</span>
+      <span class="new-badge" id="newBadge">NEW</span>
+    </div>
+
+    <div class="sparkline-container">
+      <div class="sparkline-label">30-DAY ACTIVITY INDEX</div>
+      <canvas class="sparkline" id="sparklineCanvas"></canvas>
+    </div>
+
+    <div class="feed-list" id="feedList">
+      <!-- Populated by JS -->
+    </div>
+  </div>
+</div>
+
+<!-- TICKER -->
+<div class="ticker">
+  <div class="ticker-label">INTEL TICKER</div>
+  <div class="ticker-content" id="tickerContent">
+    <!-- Populated by JS -->
+  </div>
+</div>
+
+<!-- ADD SOURCE MODAL -->
+<div class="modal-overlay" id="addModal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeAddModal()">✕ CLOSE</button>
+    <div class="panel-header">
+      <span class="panel-title">Add Intelligence Source</span>
+    </div>
+    <div style="padding:20px">
+      <div style="margin-bottom:16px">
+        <div class="detail-section-title">Source Type</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="filter-btn active" id="srcType" onclick="selectSrcType('telegram',this)">TELEGRAM</button>
+          <button class="filter-btn" onclick="selectSrcType('x',this)">X / TWITTER</button>
+          <button class="filter-btn" onclick="selectSrcType('rss',this)">RSS FEED</button>
+          <button class="filter-btn" onclick="selectSrcType('manual',this)">MANUAL IOC</button>
+        </div>
+      </div>
+      <div style="margin-bottom:12px">
+        <div class="detail-section-title">Source Handle / URL</div>
+        <input id="srcHandle" class="search-input" style="width:100%;max-width:100%" placeholder="e.g. @CyberAv3ngers_Bot or feed URL">
+      </div>
+      <div style="margin-bottom:12px">
+        <div class="detail-section-title">Associated Threat Actor (optional)</div>
+        <input id="srcActor" class="search-input" style="width:100%;max-width:100%" placeholder="e.g. APT33">
+      </div>
+      <div style="margin-bottom:16px">
+        <div class="detail-section-title">Notes</div>
+        <input id="srcNotes" class="search-input" style="width:100%;max-width:100%" placeholder="Optional context or description">
+      </div>
+      <button class="btn-add-feed" onclick="addSource()" style="width:100%;padding:10px;font-size:11px">
+        ➕ ADD SOURCE TO MONITOR
+      </button>
+      <div id="addResult" style="margin-top:12px;font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--accent4)"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// DATA
+// ============================================================
+const THREAT_GROUPS = [
+  {
+    id: 'apt33',
+    name: 'APT33',
+    aliases: ['Elfin', 'Refined Kitten', 'HOLMIUM', 'Peach Sandstorm'],
+    affiliation: 'irgc',
+    severity: 'critical',
+    active: true,
+    since: '2013',
+    description: 'IRGC-affiliated group specializing in espionage across aerospace, energy, and petrochemical sectors. Expanded cloud account compromise operations in 2024–2025, targeting Microsoft 365 and cloud VPN portals.',
+    targets: ['Aerospace','Energy','Petrochemical','Defense','Government','Critical Infra'],
+    ttps: ['T1566','T1110.003','T1078','T1059.001','T1071','T1027','T1486'],
+    platforms: [
+      { name: 'Telegram', icon: '✈', handle: '@apt33_leaks (monitored)', status: 'active' },
+      { name: 'X/Twitter', icon: '𝕏', handle: '#APT33 #PeachSandstorm', status: 'active' },
+      { name: 'MITRE', icon: '⬡', handle: 'G0064', status: 'active' },
+      { name: 'CISA', icon: '🛡', handle: 'AA24-249A', status: 'active' }
+    ],
+    iocs: [
+      { type: 'MALWARE', value: 'PowerLess', desc: 'PowerShell backdoor, avoids powershell.exe' },
+      { type: 'MALWARE', value: 'BellaCiao', desc: 'Geolocation-targeted dropper' },
+      { type: 'TOOL', value: 'Hyperscrape', desc: 'Gmail/O365 silent exfiltration tool' },
+      { type: 'TTP', value: 'Fast Reverse Proxy (FRP)', desc: 'RDP/C2 tunneling through cloud infra' }
+    ],
+    lastActivity: '2025-07-10',
+    activityScore: 92
+  },
+  {
+    id: 'apt34',
+    name: 'APT34',
+    aliases: ['OilRig', 'Helix Kitten', 'Hazel Sandstorm', 'Cobalt Gypsy'],
+    affiliation: 'mois',
+    severity: 'critical',
+    active: true,
+    since: '2014',
+    description: 'MOIS-affiliated group targeting financial, government, energy, chemical, and telecom sectors across the Middle East and internationally. Known for long-running DNS hijacking campaigns and custom backdoors.',
+    targets: ['Financial','Government','Energy','Telecom','Chemical','Healthcare'],
+    ttps: ['T1566','T1071.004','T1568','T1059','T1560','T1027','T1583'],
+    platforms: [
+      { name: 'Telegram', icon: '✈', handle: 'Leak channels (monitored)', status: 'active' },
+      { name: 'MITRE', icon: '⬡', handle: 'G0049', status: 'active' },
+      { name: 'CISA', icon: '🛡', handle: 'Multiple advisories', status: 'active' }
+    ],
+    iocs: [
+      { type: 'MALWARE', value: 'RDAT', desc: 'Email-based C2 backdoor' },
+      { type: 'MALWARE', value: 'SideTwist', desc: 'C++ backdoor with steganography' },
+      { type: 'TTP', value: 'DNSpionage', desc: 'DNS hijacking campaign 2018-2019' },
+      { type: 'MALWARE', value: 'Karkoff', desc: 'Selective payload deployment' }
+    ],
+    lastActivity: '2025-07-09',
+    activityScore: 88
+  },
+  {
+    id: 'apt35',
+    name: 'APT35 / APT42',
+    aliases: ['Magic Hound', 'Charming Kitten', 'Phosphorus', 'TA453'],
+    affiliation: 'irgc',
+    severity: 'critical',
+    active: true,
+    since: '2014',
+    description: 'Highly active IRGC-IO group known for sophisticated spear-phishing and multi-channel social engineering. Targets journalists, researchers, academics, dissidents, and defense contractors. Active in current Iran-US escalation.',
+    targets: ['Journalists','Researchers','Dissidents','Defense','Government','Academics'],
+    ttps: ['T1566.001','T1598','T1539','T1114','T1556','T1534','T1021'],
+    platforms: [
+      { name: 'Telegram', icon: '✈', handle: 'Charming Kitten ops (monitored)', status: 'active' },
+      { name: 'X/Twitter', icon: '𝕏', handle: '#CharmingKitten #Phosphorus', status: 'active' },
+      { name: 'MITRE', icon: '⬡', handle: 'G0059', status: 'active' },
+      { name: 'LinkedIn', icon: '🔗', handle: 'Fake recruiter profiles', status: 'active' }
+    ],
+    iocs: [
+      { type: 'MALWARE', value: 'NokNok', desc: 'macOS backdoor via LNK files' },
+      { type: 'MALWARE', value: 'MediaPl', desc: 'Media player-themed backdoor' },
+      { type: 'TTP', value: 'Educated Manticore', desc: 'High-trust impersonation cluster' },
+      { type: 'TOOL', value: 'AI-enhanced SE', desc: 'AI-augmented social engineering' }
+    ],
+    lastActivity: '2025-07-11',
+    activityScore: 95
+  },
+  {
+    id: 'muddywater',
+    name: 'MuddyWater',
+    aliases: ['Seedworm', 'Static Kitten', 'TEMP.Zagros', 'Mercury'],
+    affiliation: 'mois',
+    severity: 'high',
+    active: true,
+    since: '2017',
+    description: 'MOIS subordinate element targeting government and energy organizations across the Middle East, Europe, and Asia. Most active Iranian group against US companies in 2025. Adopted DarkBeatC2 framework in 2024.',
+    targets: ['Government','Energy','Telecom','Defense','Academia'],
+    ttps: ['T1566','T1059.001','T1547','T1053','T1090','T1071','T1036'],
+    platforms: [
+      { name: 'Telegram', icon: '✈', handle: 'Leak operations', status: 'active' },
+      { name: 'MITRE', icon: '⬡', handle: 'G0069', status: 'active' },
+      { name: 'CISA', icon: '🛡', handle: 'AA22-055A', status: 'active' }
+    ],
+    iocs: [
+      { type: 'TOOL', value: 'DarkBeatC2', desc: 'Advanced C2 framework adopted 2024' },
+      { type: 'MALWARE', value: 'SimpleHarm', desc: 'RAT with DLL sideloading' },
+      { type: 'TTP', value: 'Spearphishing via Dropbox', desc: 'Legitimate service abuse' },
+      { type: 'MALWARE', value: 'SloughRAT', desc: 'Web-based command execution RAT' }
+    ],
+    lastActivity: '2025-07-10',
+    activityScore: 85
+  },
+  {
+    id: 'foxkitten',
+    name: 'Fox Kitten',
+    aliases: ['Pioneer Kitten', 'UNC757', 'RUBIDIUM', 'Lemon Sandstorm', 'Parasite', 'Br0k3r'],
+    affiliation: 'irgc',
+    severity: 'critical',
+    active: true,
+    since: '2017',
+    description: 'IRGC-affiliated initial access broker collaborating with ransomware affiliates. Offering 80% revenue share for attacks aligned with Iranian interests. Exploits VPN and network device vulnerabilities as primary vector.',
+    targets: ['Education','Finance','Healthcare','Defense','Government','Critical Infra'],
+    ttps: ['T1190','T1078','T1133','T1595','T1570','T1486','T1657'],
+    platforms: [
+      { name: 'Telegram', icon: '✈', handle: 'xplfinder (2024+)', status: 'active' },
+      { name: 'DarkWeb', icon: '🌑', handle: 'Ransomware affiliate forums', status: 'active' },
+      { name: 'CISA', icon: '🛡', handle: 'AA24-241A', status: 'active' }
+    ],
+    iocs: [
+      { type: 'TTP', value: 'Citrix NetScaler CVE exploit', desc: 'Primary initial access vector' },
+      { type: 'TTP', value: 'F5 BIG-IP exploitation', desc: 'Network device compromise' },
+      { type: 'PARTNER', value: 'ALPHV/BlackCat', desc: 'Ransomware partner group' },
+      { type: 'PARTNER', value: 'NoEscape', desc: 'Ransomware partner group' },
+      { type: 'PARTNER', value: 'RansomHouse', desc: 'Ransomware partner group' }
+    ],
+    lastActivity: '2025-07-08',
+    activityScore: 90
+  },
+  {
+    id: 'cyberav3ngers',
+    name: 'CyberAv3ngers',
+    aliases: ['Soldiers of Solomon','IRGC-CEC'],
+    affiliation: 'irgc',
+    severity: 'critical',
+    active: true,
+    since: '2020',
+    description: 'IRGC Cyber Electronic Command unit specializing in attacks on industrial control systems and operational technology, particularly water/wastewater infrastructure and Israeli-made Unitronics PLCs.',
+    targets: ['Water/Wastewater','OT/ICS','Critical Infra','Healthcare'],
+    ttps: ['T0855','T0816','T0878','T1133','T1059','T0888'],
+    platforms: [
+      { name: 'Telegram', icon: '✈', handle: '@CyberAv3ngers (active)', status: 'active' },
+      { name: 'X/Twitter', icon: '𝕏', handle: '@CyberAv3ngers', status: 'active' },
+      { name: 'CISA', icon: '🛡', handle: 'AA23-335A (ICS Advisory)', status: 'active' }
+    ],
+    iocs: [
+      { type: 'TARGET', value: 'Unitronics Vision Series PLCs', desc: 'Primary OT target' },
+      { type: 'TTP', value: 'Default credential exploitation', desc: 'PLCs with factory passwords' },
+      { type: 'TTP', value: 'HMI manipulation', desc: 'Water system panel hijacking' }
+    ],
+    lastActivity: '2025-07-11',
+    activityScore: 88
+  },
+  {
+    id: 'agrius',
+    name: 'Agrius',
+    aliases: ['Pink Sandstorm', 'Agonizing Serpens', 'TA455', 'Smoke Sandstorm'],
+    affiliation: 'mois',
+    severity: 'high',
+    active: true,
+    since: '2020',
+    description: 'MOIS-linked destructive operations group. Conducts wiper attacks disguised as ransomware, primarily against Israeli organizations. Active in current conflict with disruptive operations coordinated with kinetic events.',
+    targets: ['Israel','Financial','Government','Defense','Academic'],
+    ttps: ['T1485','T1486','T1489','T1491','T1070','T1027'],
+    platforms: [
+      { name: 'Telegram', icon: '✈', handle: 'Data leak channels', status: 'active' },
+      { name: 'MITRE', icon: '⬡', handle: 'G1030', status: 'active' }
+    ],
+    iocs: [
+      { type: 'MALWARE', value: 'Apostle', desc: 'Ransomware-disguised wiper' },
+      { type: 'MALWARE', value: 'Deadwood', desc: 'Data destruction malware' },
+      { type: 'MALWARE', value: 'MultiLayer', desc: '2023 wiper variant' },
+      { type: 'TTP', value: 'Fake ransomware ops', desc: 'Cover for destructive attacks' }
+    ],
+    lastActivity: '2025-07-09',
+    activityScore: 82
+  },
+  {
+    id: 'mosestaff',
+    name: 'Moses Staff',
+    aliases: ['Marigold Sandstorm'],
+    affiliation: 'proxy',
+    severity: 'high',
+    active: true,
+    since: '2021',
+    description: 'Iranian-linked group targeting Israeli entities with data theft, encryption, and ideological propaganda. Publishes victim data and inflammatory statements via Telegram. Cyber-enabled influence operations.',
+    targets: ['Israel','Government','Private Sector'],
+    ttps: ['T1485','T1491','T1657','T1567','T1189'],
+    platforms: [
+      { name: 'Telegram', icon: '✈', handle: '@moses_staff (leak channel)', status: 'active' },
+      { name: 'X/Twitter', icon: '𝕏', handle: '@MosesStaff', status: 'active' }
+    ],
+    iocs: [
+      { type: 'CHANNEL', value: '@moses_staff', desc: 'Primary Telegram leak channel' },
+      { type: 'TTP', value: 'Custom ransomware + defacement', desc: 'Combined ops approach' }
+    ],
+    lastActivity: '2025-07-07',
+    activityScore: 72
+  },
+  {
+    id: 'handala',
+    name: 'Handala',
+    aliases: ['Handala Hack'],
+    affiliation: 'hacktivist',
+    severity: 'high',
+    active: true,
+    since: '2023',
+    description: 'Pro-Palestinian/pro-Iranian hacktivist group extremely active in current conflict. Claimed 2TB+ of stolen data from Israeli organizations in June 2025. Oil & gas sector recently targeted. Active on Telegram and X.',
+    targets: ['Israel','Oil & Gas','Military','Tech Companies'],
+    ttps: ['T1485','T1491','T1567','T1657'],
+    platforms: [
+      { name: 'Telegram', icon: '✈', handle: '@handala_hack (very active)', status: 'active' },
+      { name: 'X/Twitter', icon: '𝕏', handle: '@handala_hack', status: 'active' }
+    ],
+    iocs: [
+      { type: 'CHANNEL', value: '@handala_hack', desc: 'Primary ops announcement channel' },
+      { type: 'VICTIM', value: 'Israeli oil & gas firm', desc: 'June 14 2025 claimed breach' }
+    ],
+    lastActivity: '2025-07-11',
+    activityScore: 80
+  },
+  {
+    id: 'homeland',
+    name: 'HomeLand Justice',
+    aliases: ['Nemesis Kitten', 'DEV-0270'],
+    affiliation: 'irgc',
+    severity: 'high',
+    active: true,
+    since: '2021',
+    description: 'Hacktivist-branded Iranian threat actor combining ransomware tactics with influence operations. Targets critical infrastructure and government. Exfiltrates data before encryption and leaks via Telegram.',
+    targets: ['Critical Infra','Government','Public Services'],
+    ttps: ['T1486','T1657','T1491','T1489','T1566'],
+    platforms: [
+      { name: 'Telegram', icon: '✈', handle: 'HomeLand Justice channels', status: 'active' },
+      { name: 'MITRE', icon: '⬡', handle: 'DEV-0270', status: 'active' }
+    ],
+    iocs: [
+      { type: 'TTP', value: 'Exfil-then-encrypt', desc: 'Data theft before ransomware deployment' },
+      { type: 'TTP', value: 'Psychological ops messaging', desc: 'Fear/disruption focused messaging' }
+    ],
+    lastActivity: '2025-07-06',
+    activityScore: 70
+  },
+  {
+    id: 'team313',
+    name: 'Team 313',
+    aliases: ['Team313', 'Pro-Iranian Hacktivists'],
+    affiliation: 'hacktivist',
+    severity: 'med',
+    active: true,
+    since: '2024',
+    description: 'Pro-Iranian activist group claiming DDoS attacks against US platforms. Claimed responsibility for Truth Social outage on June 23, 2025, citing US strikes on Iranian nuclear facilities as motivation.',
+    targets: ['US Platforms','Media','Infrastructure'],
+    ttps: ['T1498','T1499'],
+    platforms: [
+      { name: 'Telegram', icon: '✈', handle: '@team313_official (claimed ops)', status: 'active' },
+      { name: 'X/Twitter', icon: '𝕏', handle: '#Team313', status: 'active' }
+    ],
+    iocs: [
+      { type: 'TTP', value: 'DDoS campaigns', desc: 'Platform-level denial of service' },
+      { type: 'VICTIM', value: 'Truth Social', desc: 'June 23 2025 DDoS claim' }
+    ],
+    lastActivity: '2025-06-23',
+    activityScore: 55
+  },
+  {
+    id: 'dieNet',
+    name: 'DieNet',
+    aliases: ['Die.net','Killnet affiliate'],
+    affiliation: 'hacktivist',
+    severity: 'med',
+    active: true,
+    since: '2024',
+    description: 'Iranian-aligned hacktivist group that executed the largest single-day cyber operation on record — 25,000 connections in one day on March 18-19, 2025, targeting 61 US organizations in a coordinated campaign.',
+    targets: ['US Organizations','Critical Infra'],
+    ttps: ['T1498','T1499','T1595'],
+    platforms: [
+      { name: 'Telegram', icon: '✈', handle: '@dienet_ops (claimed ops)', status: 'active' }
+    ],
+    iocs: [
+      { type: 'DATE', value: '2025-03-18/19', desc: '25,000 connections — record activity spike' },
+      { type: 'SCALE', value: '61 US orgs', desc: 'Single campaign victim count' }
+    ],
+    lastActivity: '2025-03-19',
+    activityScore: 60
+  }
+];
+
+// INCIDENT FEED DATA
+const FEED_ITEMS = [
+  {
+    id: 1, time: '2026-03-03T06:41:00Z', actor: 'APT35 / Charming Kitten', source: 'x',
+    severity: 'CRITICAL',
+    content: 'New spear-phishing campaign observed targeting US defense think-tank researchers via LinkedIn and WhatsApp. Social engineering using AI-generated personas posing as Israeli academics.',
+    tags: ['spearphish','social-eng','defense','AI-enhanced']
+  },
+  {
+    id: 2, time: '2026-03-03T04:15:00Z', actor: 'CyberAv3ngers', source: 'telegram',
+    severity: 'CRITICAL',
+    content: 'Telegram channel posted screenshots claiming access to 3 US water utility SCADA systems. Unitronics PLC default credential exploitation confirmed in advisory.',
+    tags: ['OT/ICS','water','SCADA','IRGC']
+  },
+  {
+    id: 3, time: '2026-03-02T22:30:00Z', actor: 'Fox Kitten', source: 'news',
+    severity: 'HIGH',
+    content: 'Morphisec report: Fox Kitten increasing ransomware affiliate revenue share to 80% for attacks on US/Israeli targets. New xplfinder channel operational.',
+    tags: ['ransomware','affiliate','financial']
+  },
+  {
+    id: 4, time: '2026-03-02T18:00:00Z', actor: 'MuddyWater', source: 'cisa',
+    severity: 'HIGH',
+    content: 'CISA advisory update: MuddyWater confirmed targeting 5+ US companies via spearphishing with DarkBeatC2 framework. Energy sector most impacted. Patch Pulse Secure VPNs immediately.',
+    tags: ['DarkBeatC2','energy','VPN','CISA']
+  },
+  {
+    id: 5, time: '2026-03-02T12:45:00Z', actor: 'Handala', source: 'telegram',
+    severity: 'HIGH',
+    content: '@handala_hack Telegram: "We have breached 4 Israeli targets this week. Data release imminent. Oil sector files obtained." Claims 2.4TB exfiltrated.',
+    tags: ['exfil','israel','oil-gas','telegram-claim']
+  },
+  {
+    id: 6, time: '2026-03-02T09:20:00Z', actor: 'APT33', source: 'mitre',
+    severity: 'HIGH',
+    content: 'New MITRE ATT&CK update: APT33 Hyperscrape variant detected with updated evasion capabilities. Now targeting cloud-native email platforms beyond Gmail.',
+    tags: ['hyperscrape','cloud','email','exfil']
+  },
+  {
+    id: 7, time: '2026-03-01T20:00:00Z', actor: 'Agrius', source: 'news',
+    severity: 'HIGH',
+    content: 'Check Point Research: Agrius conducting disruptive operations coordinated with kinetic events. New MultiLayer wiper variant deployed against Middle Eastern financial sector.',
+    tags: ['wiper','destructive','financial','MOIS']
+  },
+  {
+    id: 8, time: '2026-03-01T15:30:00Z', actor: 'APT34 / OilRig', source: 'cisa',
+    severity: 'CRITICAL',
+    content: 'Joint CISA/FBI advisory: OilRig targeting US government email systems via Exchange vulnerabilities. SideTwist backdoor detected in multiple federal networks.',
+    tags: ['exchange','government','backdoor','federal']
+  },
+  {
+    id: 9, time: '2026-03-01T10:00:00Z', actor: 'Team 313', source: 'x',
+    severity: 'MEDIUM',
+    content: 'Team 313 on X: Claiming new DDoS campaign against unnamed US social media platform. Bandwidth attack estimated at 900 Gbps peak. Attribution unconfirmed.',
+    tags: ['DDoS','social-media','hacktivism']
+  },
+  {
+    id: 10, time: '2026-02-28T22:00:00Z', actor: 'HomeLand Justice', source: 'telegram',
+    severity: 'HIGH',
+    content: 'HomeLand Justice leak site updated with new victim: unnamed European energy infrastructure company. 40GB data posted. Ransomware note references US sanctions.',
+    tags: ['ransomware','energy','europe','leak-site']
+  },
+  {
+    id: 11, time: '2026-02-27T16:00:00Z', actor: 'Fox Kitten', source: 'news',
+    severity: 'CRITICAL',
+    content: 'FBI alert: Fox Kitten exploiting Ivanti Connect Secure (CVE-2025-0282) at scale. Acting as IAB for ALPHV ransomware. US healthcare sector under active attack.',
+    tags: ['Ivanti','CVE-2025-0282','healthcare','IAB','FBI']
+  },
+  {
+    id: 12, time: '2026-02-26T14:00:00Z', actor: 'MuddyWater', source: 'mitre',
+    severity: 'MEDIUM',
+    content: 'Threat intel: MuddyWater confirmed using legitimate remote management tool (Atera) for C2 in recent campaigns, blending into normal admin traffic.',
+    tags: ['living-off-land','atera','C2','evasion']
+  }
+];
+
+// ============================================================
+// STATE
+// ============================================================
+let selectedGroup = THREAT_GROUPS[0];
+let activeFilter = 'all';
+let searchQuery = '';
+let feedItems = [...FEED_ITEMS];
+let sources = [
+  { type: 'telegram', handle: '@CyberAv3ngers', actor: 'CyberAv3ngers', notes: 'Official ICS ops channel' },
+  { type: 'telegram', handle: '@handala_hack', actor: 'Handala', notes: 'Data leak announcements' },
+  { type: 'cisa', handle: 'https://www.cisa.gov/iran', actor: 'All Groups', notes: 'CISA Iran advisories' },
+  { type: 'x', handle: '#PeachSandstorm', actor: 'APT33', notes: 'Community tracking' }
+];
+
+// ============================================================
+// CLOCK
+// ============================================================
+function updateClock() {
+  const now = new Date();
+  const str = now.toUTCString().replace(' GMT', ' UTC').split(' ').slice(4).join(' ');
+  document.getElementById('clock').textContent = now.toISOString().replace('T',' ').substring(0,19) + ' UTC';
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+// ============================================================
+// RENDER GROUPS
+// ============================================================
+function renderGroups(filter) {
+  const list = document.getElementById('groupList');
+  const groups = filter
+    ? THREAT_GROUPS.filter(g =>
+        g.name.toLowerCase().includes(filter) ||
+        g.aliases.some(a => a.toLowerCase().includes(filter)) ||
+        g.targets.some(t => t.toLowerCase().includes(filter))
+      )
+    : THREAT_GROUPS;
+
+  // Section headers
+  const irgc = groups.filter(g => g.affiliation === 'irgc');
+  const mois = groups.filter(g => g.affiliation === 'mois');
+  const proxy = groups.filter(g => g.affiliation === 'proxy');
+  const hacktivist = groups.filter(g => g.affiliation === 'hacktivist');
+
+  let html = '';
+
+  if (irgc.length) {
+    html += '<div class="section-header">IRGC AFFILIATED</div>';
+    irgc.forEach(g => html += groupHTML(g));
+  }
+  if (mois.length) {
+    html += '<div class="section-header">MOIS AFFILIATED</div>';
+    mois.forEach(g => html += groupHTML(g));
+  }
+  if (proxy.length) {
+    html += '<div class="section-header">STATE PROXY</div>';
+    proxy.forEach(g => html += groupHTML(g));
+  }
+  if (hacktivist.length) {
+    html += '<div class="section-header">HACKTIVIST / PROXY</div>';
+    hacktivist.forEach(g => html += groupHTML(g));
+  }
+
+  list.innerHTML = html;
+  document.getElementById('groupCountBadge').textContent = groups.length + ' GROUPS';
+}
+
+function groupHTML(g) {
+  const isActive = selectedGroup && selectedGroup.id === g.id;
+  return `
+    <div class="group-item ${g.affiliation} ${isActive ? 'active' : ''}" onclick="selectGroup('${g.id}')">
+      <div class="group-item-header">
+        <span class="group-name">${g.name}</span>
+        <div class="severity-dot ${g.severity}"></div>
+      </div>
+      <div class="group-aka">${g.aliases.slice(0,3).join(' · ')}</div>
+      <div class="group-meta">
+        <span class="tag ${g.affiliation}">${g.affiliation.toUpperCase()}</span>
+        <span class="tag" style="color:var(--text-dim);border-color:var(--border-hot)">Since ${g.since}</span>
+        ${g.active ? '<span style="font-family:Share Tech Mono,monospace;font-size:8px;color:var(--accent4);letter-spacing:1px">● ACTIVE</span>' : ''}
+      </div>
+    </div>
+  `;
+}
+
+// ============================================================
+// SELECT GROUP
+// ============================================================
+function selectGroup(id) {
+  selectedGroup = THREAT_GROUPS.find(g => g.id === id);
+  renderGroups(searchQuery);
+  renderDetail();
+}
+
+// ============================================================
+// RENDER DETAIL
+// ============================================================
+function renderDetail() {
+  const g = selectedGroup;
+  if (!g) return;
+
+  const scoreColor = g.activityScore >= 85 ? 'var(--critical)' : g.activityScore >= 65 ? 'var(--high)' : 'var(--med)';
+
+  let html = `
+    <div class="detail-header">
+      <div>
+        <div class="detail-name">${g.name}</div>
+        <div class="detail-aliases">AKA: ${g.aliases.join(' · ')}</div>
+        <div class="detail-tags">
+          <span class="tag ${g.affiliation}">${g.affiliation.toUpperCase()}</span>
+          <span class="tag" style="color:var(--text-dim);border-color:var(--border-hot)">ACTIVE SINCE ${g.since}</span>
+          <span class="tag" style="color:var(--accent4);border-color:var(--accent4)">● ACTIVE</span>
+          <span class="tag" style="color:var(--text-dim);border-color:var(--border-hot)">LAST: ${g.lastActivity}</span>
+        </div>
+      </div>
+      <div class="threat-meter">
+        <div class="threat-meter-label">ACTIVITY SCORE</div>
+        <div class="threat-meter-value" style="color:${scoreColor}">${g.activityScore}</div>
+        <div class="threat-meter-bar">
+          <div class="threat-meter-fill" style="width:${g.activityScore}%;background:${scoreColor}"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="detail-card" style="margin-bottom:12px">
+      <div class="detail-card-title">Group Profile</div>
+      <div class="detail-card-content" style="font-size:13px;line-height:1.7">${g.description}</div>
+    </div>
+
+    <div class="detail-grid">
+      <div class="detail-card">
+        <div class="detail-card-title">Primary Targets</div>
+        <div>${g.targets.map(t => `<span class="target-chip">${t}</span>`).join('')}</div>
+      </div>
+      <div class="detail-card">
+        <div class="detail-card-title">MITRE ATT&CK TTPs</div>
+        <div class="ttp-grid">${g.ttps.map(t => `<span class="ttp-chip">${t}</span>`).join('')}</div>
+      </div>
+    </div>
+
+    <div class="detail-section-title">Platform Presence & Monitoring</div>
+    ${g.platforms.map(p => `
+      <div class="platform-row">
+        <div class="platform-icon">${p.icon}</div>
+        <div class="platform-name">${p.name}</div>
+        <div class="platform-handle">${p.handle}</div>
+        <div class="platform-status ${p.status}"></div>
+      </div>
+    `).join('')}
+
+    <div class="detail-section-title">Known IOCs & Malware</div>
+    ${g.iocs.map(ioc => `
+      <div class="ioc-row">
+        <div class="ioc-type">${ioc.type}</div>
+        <div class="ioc-value">${ioc.value}</div>
+        <div class="ioc-desc">${ioc.desc}</div>
+      </div>
+    `).join('')}
+
+    <div class="detail-section-title">Related Intel Feed</div>
+    ${FEED_ITEMS.filter(f => f.actor.toLowerCase().includes(g.name.split(' ')[0].toLowerCase()) || f.actor.toLowerCase().includes(g.aliases[0].toLowerCase())).slice(0,3).map(f => `
+      <div style="padding:8px 0;border-bottom:1px solid var(--border)">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
+          <span class="feed-time">${f.time.replace('T',' ').substring(0,16)} UTC</span>
+          <span class="feed-severity ${f.severity}">${f.severity}</span>
+          <span class="source-icon ${f.source}">${f.source.toUpperCase()}</span>
+        </div>
+        <div style="font-size:12px;color:var(--text);line-height:1.5">${f.content}</div>
+      </div>
+    `).join('') || '<div style="color:var(--text-dim);font-family:Share Tech Mono,monospace;font-size:10px;padding:8px 0">No recent incidents in feed for this actor</div>'}
+  `;
+
+  document.getElementById('detailView').innerHTML = html;
+}
+
+// ============================================================
+// RENDER FEED
+// ============================================================
+function renderFeed(filter) {
+  const list = document.getElementById('feedList');
+  let items = feedItems;
+
+  if (filter && filter !== 'all') {
+    if (['CRITICAL','HIGH','MEDIUM','LOW'].includes(filter)) {
+      items = items.filter(f => f.severity === filter);
+    } else {
+      items = items.filter(f => f.source === filter);
+    }
+  }
+
+  if (!items.length) {
+    list.innerHTML = '<div class="empty-state">⬡ NO ITEMS MATCHING FILTER</div>';
+    return;
+  }
+
+  list.innerHTML = items.map((f, i) => `
+    <div class="feed-item ${i === 0 ? 'new' : ''}">
+      <div class="feed-time">${f.time.replace('T',' ').substring(0,16)} UTC</div>
+      <div class="feed-actor">${f.actor}</div>
+      <div class="feed-content">${f.content}</div>
+      <div class="feed-tags">
+        <span class="feed-severity ${f.severity}">${f.severity}</span>
+        <span class="source-icon ${f.source}">${f.source.toUpperCase()}</span>
+        ${f.tags.map(t => `<span class="feed-tag">#${t}</span>`).join('')}
+      </div>
+    </div>
+  `).join('');
+
+  document.getElementById('incidentCount').textContent = items.length;
+  document.getElementById('iocCount').textContent = THREAT_GROUPS.reduce((a,g) => a + g.iocs.length, 0);
+}
+
+// ============================================================
+// FILTER / SEARCH
+// ============================================================
+function filterFeed(filter, btn) {
+  activeFilter = filter;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  renderFeed(filter);
+}
+
+function handleSearch(query) {
+  searchQuery = query.toLowerCase();
+  renderGroups(searchQuery);
+}
+
+// ============================================================
+// SPARKLINE
+// ============================================================
+function drawSparkline() {
+  const canvas = document.getElementById('sparklineCanvas');
+  const ctx = canvas.getContext('2d');
+  canvas.width = canvas.offsetWidth * window.devicePixelRatio;
+  canvas.height = canvas.offsetHeight * window.devicePixelRatio;
+  ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+
+  const W = canvas.offsetWidth, H = canvas.offsetHeight;
+
+  // Simulated 30-day activity data (reflects known spikes)
+  const data = [20,18,22,25,19,30,28,35,32,40,38,45,42,50,55,48,60,65,58,70,85,80,75,88,92,78,85,90,95,88];
+
+  const max = Math.max(...data);
+  const min = Math.min(...data);
+  const norm = v => H - ((v - min) / (max - min)) * (H - 10) - 5;
+
+  // Fill gradient
+  const grad = ctx.createLinearGradient(0, 0, 0, H);
+  grad.addColorStop(0, 'rgba(0,200,255,0.25)');
+  grad.addColorStop(1, 'rgba(0,200,255,0)');
+
+  ctx.beginPath();
+  data.forEach((v, i) => {
+    const x = (i / (data.length - 1)) * W;
+    const y = norm(v);
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  });
+  ctx.lineTo(W, H); ctx.lineTo(0, H); ctx.closePath();
+  ctx.fillStyle = grad;
+  ctx.fill();
+
+  // Line
+  ctx.beginPath();
+  data.forEach((v, i) => {
+    const x = (i / (data.length - 1)) * W;
+    const y = norm(v);
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  });
+  ctx.strokeStyle = '#00c8ff';
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+
+  // Mark the spike on Mar 18-19 (day ~17-18)
+  const spikeX = (17 / (data.length - 1)) * W;
+  ctx.beginPath();
+  ctx.moveTo(spikeX, 0); ctx.lineTo(spikeX, H);
+  ctx.strokeStyle = 'rgba(255,64,64,0.4)';
+  ctx.lineWidth = 1;
+  ctx.setLineDash([2,2]);
+  ctx.stroke();
+  ctx.setLineDash([]);
+}
+
+// ============================================================
+// TICKER
+// ============================================================
+function renderTicker() {
+  const items = FEED_ITEMS.map(f =>
+    `<span class="ticker-item"><span class="actor">[${f.actor}]</span> <span class="sev">${f.severity}</span> — ${f.content.substring(0,80)}...</span>`
+  );
+  // Duplicate for seamless loop
+  const all = [...items, ...items];
+  document.getElementById('tickerContent').innerHTML = all.join('');
+}
+
+// ============================================================
+// SIMULATED LIVE FEED UPDATE
+// ============================================================
+const NEW_EVENTS = [
+  { actor: 'APT33', source: 'x', severity: 'CRITICAL', content: 'BREAKING: APT33 Peach Sandstorm credential spray campaign detected against 3 US defense contractors. BellaCiao dropper variant in use.', tags: ['APT33','credential-spray','defense'] },
+  { actor: 'Handala', source: 'telegram', severity: 'HIGH', content: 'NEW: @handala_hack claims breach of Israeli university. 80GB student/research data posted to leak site.', tags: ['handala','israel','academic'] },
+  { actor: 'CyberAv3ngers', source: 'telegram', severity: 'CRITICAL', content: 'ALERT: CyberAv3ngers claims access to OT network of US water utility in southwest. CISA notified.', tags: ['OT','water','IRGC','ICS'] },
+  { actor: 'MuddyWater', source: 'cisa', severity: 'HIGH', content: 'CISA IOC update: New MuddyWater C2 infrastructure detected. 4 IPs added to advisory watchlist.', tags: ['C2','IOC','CISA'] },
+  { actor: 'Fox Kitten', source: 'news', severity: 'HIGH', content: 'Recorded Future: Fox Kitten pivoting to new VPN exploit targeting Palo Alto PAN-OS (CVE-2025-0108).', tags: ['PAN-OS','VPN','IAB','CVE'] }
+];
+
+let newEventIdx = 0;
+function injectLiveEvent() {
+  const e = NEW_EVENTS[newEventIdx % NEW_EVENTS.length];
+  newEventIdx++;
+  const now = new Date();
+  const item = {
+    id: Date.now(),
+    time: now.toISOString(),
+    actor: e.actor,
+    source: e.source,
+    severity: e.severity,
+    content: e.content,
+    tags: e.tags
+  };
+  feedItems.unshift(item);
+  renderFeed(activeFilter);
+  document.getElementById('newBadge').style.display = 'inline';
+  setTimeout(() => document.getElementById('newBadge').style.display = 'none', 5000);
+}
+
+// ============================================================
+// ADD SOURCE MODAL
+// ============================================================
+let currentSrcType = 'telegram';
+
+function openAddModal() {
+  document.getElementById('addModal').classList.add('open');
+}
+
+function closeAddModal() {
+  document.getElementById('addModal').classList.remove('open');
+}
+
+function selectSrcType(type, btn) {
+  currentSrcType = type;
+  document.querySelectorAll('#addModal .filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+function addSource() {
+  const handle = document.getElementById('srcHandle').value.trim();
+  const actor = document.getElementById('srcActor').value.trim();
+  const notes = document.getElementById('srcNotes').value.trim();
+  if (!handle) { document.getElementById('addResult').textContent = '⚠ Handle/URL required.'; return; }
+
+  sources.push({ type: currentSrcType, handle, actor, notes });
+  document.getElementById('addResult').textContent = `✓ Source added: ${handle} (${currentSrcType.toUpperCase()})`;
+  document.getElementById('srcHandle').value = '';
+  document.getElementById('srcActor').value = '';
+  document.getElementById('srcNotes').value = '';
+
+  // Inject fake feed event
+  feedItems.unshift({
+    id: Date.now(), time: new Date().toISOString(),
+    actor: actor || 'Unknown', source: currentSrcType,
+    severity: 'MEDIUM',
+    content: `New intelligence source added to monitoring: ${handle}. ${notes || ''}`,
+    tags: [currentSrcType, 'new-source', 'manual']
+  });
+  renderFeed(activeFilter);
+}
+
+// Close modal on overlay click
+document.getElementById('addModal').addEventListener('click', function(e) {
+  if (e.target === this) closeAddModal();
+});
+
+// ============================================================
+// INIT
+// ============================================================
+function init() {
+  renderGroups('');
+  renderDetail();
+  renderFeed('all');
+  renderTicker();
+  setTimeout(drawSparkline, 100);
+
+  // Inject a live event every 45 seconds
+  setInterval(injectLiveEvent, 45000);
+
+  // Blink threat badge
+  const badge = document.getElementById('activeCampaigns');
+  setInterval(() => {
+    badge.textContent = Math.floor(6 + Math.random() * 3);
+  }, 30000);
+}
+
+window.addEventListener('load', init);
+window.addEventListener('resize', () => setTimeout(drawSparkline, 100));
+</script>
+
+</body>
+</html>
